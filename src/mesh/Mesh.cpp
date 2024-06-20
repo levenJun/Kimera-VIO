@@ -81,6 +81,9 @@ Mesh<VertexPositionType>& Mesh<VertexPositionType>::operator=(
 }
 
 /* -------------------------------------------------------------------------- */
+//在mesher全局缓存中, 新建或者刷新这个特征id对应的顶点信息
+//3个顶点id组成唯一hash码,用map<hash,bool>  face_hashes_ 标记 面片的存在性
+//新的面片 刷新顶点间的邻接关系矩阵 adjacency_matrix_
 template <typename VertexPositionType>
 void Mesh<VertexPositionType>::addPolygonToMesh(const Polygon& polygon) {
   // Update mesh connectivity
@@ -99,10 +102,12 @@ void Mesh<VertexPositionType>::addPolygonToMesh(const Polygon& polygon) {
   for (const VertexType& vertex : polygon) {
     const LandmarkId& lmk_id = vertex.getLmkId();
     VertexId existing_vtx_id;
-    if (!getVtxIdForLmkId(lmk_id, &existing_vtx_id)) {
+    if (!getVtxIdForLmkId(lmk_id, &existing_vtx_id)) {  //特征点id和面片顶点id是两套id,这里作转换
       // Vtx is not in the mesh, so no way the triangle is in the mesh.
+      //特征点没有顶点id,那么肯定没有对应的面片记录
       triangle_maybe_already_in_mesh = false;
     }
+    //在mesher全局缓存中, 新建或者刷新这个特征id对应的顶点信息
     const VertexId& vtx_id =
         updateMeshDataStructures(lmk_id,
                                  vertex.getVertexPosition(),
@@ -168,6 +173,7 @@ void Mesh<VertexPositionType>::addPolygonToMesh(const Polygon& polygon) {
     }
 
     // Update adjacency matrix
+    // 刷新顶点间的邻接矩阵 adjacency_matrix_
     if (!triangle_maybe_already_in_mesh) {
       // There are new vertices!
       // TODO(Toni): this assumes that we never remove vertices!!

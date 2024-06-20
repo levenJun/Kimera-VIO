@@ -33,10 +33,12 @@ class MesherModule : public MIMOPipelineModule<MesherInput, MesherOutput> {
   MesherModule(bool parallel_run, Mesher::UniquePtr mesher);
   virtual ~MesherModule() = default;
 
+  //得到vio前端的输出
   //! Callbacks to fill queues: they should be all lighting fast.
   inline void fillFrontendQueue(const MesherFrontendInput& frontend_payload) {
     frontend_payload_queue_.push(frontend_payload);
   }
+  //得到vio后端的输出
   inline void fillBackendQueue(const MesherBackendInput& backend_payload) {
     backend_payload_queue_.push(backend_payload);
   }

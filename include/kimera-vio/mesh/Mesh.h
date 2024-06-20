@@ -79,7 +79,7 @@ class Mesh {
           vertex_position_(),
           vertex_normal_(),
           vertex_color_(cv::viz::Color::white()) {}
-
+    //面片顶点初始color是白色,初始法向为(0,0,0)
     Vertex(const LandmarkId& lmk_id,
            const VertexPosition& vertex_position,
            const VertexColorRGB& vertex_color = cv::viz::Color::white(),

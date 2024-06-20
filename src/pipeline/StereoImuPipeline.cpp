@@ -75,6 +75,7 @@ StereoImuPipeline::StereoImuPipeline(const VioParams& params,
       std::bind(&StereoImuPipeline::spinOnce, this, std::placeholders::_1));
 
   //! Create Frontend
+  //创建 vio前端
   vio_frontend_module_ = std::make_unique<VisionImuFrontendModule>(
       &frontend_input_queue_,
       parallel_run_,
@@ -122,6 +123,7 @@ StereoImuPipeline::StereoImuPipeline(const VioParams& params,
       FLAGS_visualize && FLAGS_visualize_lmk_type);
 
   //! Create Backend
+  //创建 vio后端
   CHECK(backend_params_);
   vio_backend_module_ = std::make_unique<VioBackendModule>(
       &backend_input_queue_,
@@ -148,6 +150,7 @@ StereoImuPipeline::StereoImuPipeline(const VioParams& params,
                 std::cref(*CHECK_NOTNULL(vio_frontend_module_.get())),
                 std::placeholders::_1));
 
+  //创建 mesher
   if (static_cast<VisualizationType>(FLAGS_viz_type) ==
       VisualizationType::kMesh2dTo3dSparse) {
     mesher_module_ = std::make_unique<MesherModule>(

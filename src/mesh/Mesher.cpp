@@ -215,7 +215,7 @@ Mesher::Mesher(const MesherParams& mesher_params, const bool& serialize_meshes)
   hist_2d_ = Histogram(
       1, channels_2d, cv::Mat(), 2, hist_2d_size, ranges_2d, true, false);
 }
-
+//mesher的入口函数?
 MesherOutput::UniquePtr Mesher::spinOnce(const MesherInput& input) {
   MesherOutput::UniquePtr mesher_output_payload =
       std::make_unique<MesherOutput>(input.timestamp_);
@@ -402,9 +402,9 @@ void Mesher::filterOutBadTriangles(const gtsam::Pose3& leftCameraPose,
 bool Mesher::isBadTriangle(
     const Mesh3D::Polygon& polygon,
     const gtsam::Pose3& left_camera_pose,
-    const double& min_ratio_between_largest_an_smallest_side,
+    const double& min_ratio_between_largest_an_smallest_side,//最长边和最短边比例阈值
     const double& min_elongation_ratio,
-    const double& max_triangle_side) const {
+    const double& max_triangle_side) const {//最长边长度阈值
   CHECK_EQ(polygon.size(), 3) << "Expecting 3 vertices in triangle";
   const Vertex3D& p1 = polygon.at(0).getVertexPosition();
   const Vertex3D& p2 = polygon.at(1).getVertexPosition();
@@ -422,7 +422,7 @@ bool Mesher::isBadTriangle(
 
   // If threshold is disabled, avoid computation.
   if (min_ratio_between_largest_an_smallest_side > 0.0) {
-    ratioSides_i = getRatioBetweenSmallestAndLargestSide(d12, d23, d31);
+    ratioSides_i = getRatioBetweenSmallestAndLargestSide(d12, d23, d31);//最大最小边长比例
   }
 
   // If threshold is disabled, avoid computation.
@@ -456,6 +456,8 @@ bool Mesher::isBadTriangle(
 // Create a 3D mesh from 2D corners in an image, keeps the mesh in time horizon.
 // Optionally returns the 2D mesh that links with the 3D mesh via the
 // landmarks ids.
+//1)用2d面片反向投影得到3d面片, 然后向全局面片缓存中填充顶点/面片(新建or刷新)
+//2)对缓存的全局面片进行全面刷新:用有效特征点的最新pose去刷新面片顶点;然后删除无效特征对应的面片
 void Mesher::populate3dMeshTimeHorizon(
     // cv::Vec6f assumes triangular mesh.
     const std::vector<cv::Vec6f>& mesh_2d_pixels,
@@ -469,6 +471,15 @@ void Mesher::populate3dMeshTimeHorizon(
     Mesh2D* mesh_2d) {
   VLOG(10) << "Starting populate3dMeshTimeHorizon...";
   VLOG(10) << "Starting populate3dMesh...";
+  // main: 用2d面片反向投影得到3d面片, 然后向全局面片缓存中填充顶点/面片(新建or刷新)
+  // 从图片的2d三角刨分结果
+  // 每个顶点关联全局的MP点id, 得到3d坐标生成3d mesh结果
+  // 几何校验剔除 bad 面片
+  // mesh_3d_.addPolygonToMesh(polygon): 
+      //在mesher全局缓存中, 新建或者刷新这个特征id对应的顶点信息:顶点id,顶点坐标,顶点法线
+      //3个顶点id组成唯一hash码,用map<hash,bool>  face_hashes_ 标记 面片的存在性
+      //新的面片 刷新顶点间的邻接关系矩阵 adjacency_matrix_
+  // mesh_2d->addPolygonToMesh(face);  
   populate3dMesh(mesh_2d_pixels,
                  points_with_id_map,
                  keypoints,
@@ -482,6 +493,8 @@ void Mesher::populate3dMeshTimeHorizon(
   // Remove faces in the mesh that have vertices which are not in
   // points_with_id_map anymore.
   VLOG(10) << "Starting updatePolygonMeshToTimeHorizon...";
+  // 用顶点最新pose 刷新 缓存的面片
+  // 保持有效特征点对应的面片集合, 无效特征对应的面片直接删除  
   updatePolygonMeshToTimeHorizon(points_with_id_map,
                                  left_cam_pose,
                                  min_ratio_largest_smallest_side,
@@ -493,6 +506,15 @@ void Mesher::populate3dMeshTimeHorizon(
 
 /* -------------------------------------------------------------------------- */
 // Create a 3D mesh from 2D corners in an image.
+// main: 用2d面片反向投影得到3d面片, 然后向全局面片缓存中填充顶点/面片(新建or刷新)
+// 从图片的2d三角刨分结果
+// 每个顶点关联全局的MP点id, 得到3d坐标生成3d mesh结果
+// 几何校验剔除 bad 面片
+// mesh_3d_.addPolygonToMesh(polygon): 
+    //在mesher全局缓存中, 新建或者刷新这个特征id对应的顶点信息:顶点id,顶点坐标,顶点法线
+    //3个顶点id组成唯一hash码,用map<hash,bool>  face_hashes_ 标记 面片的存在性
+    //新的面片 刷新顶点间的邻接关系矩阵 adjacency_matrix_
+// mesh_2d->addPolygonToMesh(face);
 void Mesher::populate3dMesh(const std::vector<cv::Vec6f>& mesh_2d_pixels,
                             const PointsWithIdMap& points_with_id_map,
                             const KeypointsCV& keypoints,
@@ -553,14 +575,15 @@ void Mesher::populate3dMesh(const std::vector<cv::Vec6f>& mesh_2d_pixels,
                         static_cast<float>(point.z()));
         // Add landmark as one of the vertices of the current polygon in 3D.
         DCHECK_LT(j, polygon.size());
-        polygon.at(j) = Mesh3D::VertexType(lmk_id, lmk);
+        polygon.at(j) = Mesh3D::VertexType(lmk_id, lmk);//特征点map_id, 3d坐标
         if (mesh_2d != nullptr) {
-          face.at(j) = Mesh2D::VertexType(lmk_id, pixel);
+          face.at(j) = Mesh2D::VertexType(lmk_id, pixel);//特征点map_id, 2d像素坐标
         }
         static const size_t loop_end = triangle_2d.rows / 2u - 1u;
         if (j == loop_end) {
           // Last iteration.
           // Filter out bad polygons.
+          //3d面片作几何校验
           if (!isBadTriangle(polygon,
                              left_cam_pose,
                              min_ratio_largest_smallest_side,
@@ -589,6 +612,8 @@ void Mesher::populate3dMesh(const std::vector<cv::Vec6f>& mesh_2d_pixels,
 /* -------------------------------------------------------------------------- */
 // TODO the polygon_mesh has repeated faces...
 // And this seems to slow down quite a bit the for loop!
+// 用顶点最新pose 刷新 缓存的面片
+// 保持有效特征点对应的面片集合, 无效特征对应的面片直接删除
 void Mesher::updatePolygonMeshToTimeHorizon(
     const PointsWithIdMap& points_with_id_map,
     const gtsam::Pose3& leftCameraPose,
@@ -1440,6 +1465,10 @@ void Mesher::associatePlanes(const std::vector<Plane>& segmented_planes,
   }
 }
 
+// mesh生成主函数?
+//1)单帧的2d特征列表生成2d的三角刨分结果
+//2-1)用2d面片反向投影得到3d面片, 然后向全局面片缓存中填充顶点/面片(新建or刷新)
+//2-2)对缓存的全局面片进行全面刷新:用有效特征点的最新pose去刷新面片顶点;然后删除无效特征对应的面片
 /* -------------------------------------------------------------------------- */
 // Update mesh: update structures keeping memory of the map before visualization
 // Optional parameter is the mesh in 2D for visualization.
@@ -1486,7 +1515,8 @@ void Mesher::updateMesh3D(const PointsWithIdMap& points_with_id_VIO,
            << points_with_id_all->size();
 
   // Build 2D mesh.
-  std::vector<cv::Vec6f> mesh_2d_pixels;
+  //单帧的2d特征列表生成2d的三角刨分结果
+  std::vector<cv::Vec6f> mesh_2d_pixels;//2d三角刨分结果
   createMesh2dVIO(&mesh_2d_pixels,
                   landmarks,
                   keypoints_status,
@@ -1495,7 +1525,8 @@ void Mesher::updateMesh3D(const PointsWithIdMap& points_with_id_VIO,
                   *points_with_id_all);
   if (mesh_2d_for_viz) *mesh_2d_for_viz = mesh_2d_pixels;
   LOG_IF(WARNING, mesh_2d_pixels.size() == 0) << "2D Mesh is empty!";
-
+  //1)用2d面片反向投影得到3d面片, 然后向全局面片缓存中填充顶点/面片(新建or刷新)
+  //2)对缓存的全局面片进行全面刷新:用有效特征点的最新pose去刷新面片顶点;然后删除无效特征对应的面片
   populate3dMeshTimeHorizon(mesh_2d_pixels,
                             *points_with_id_all,
                             keypoints,
@@ -1703,9 +1734,12 @@ void Mesher::createMesh2dVIO(
   }
 
   // Get a triangulation for all valid keypoints.
-  *triangulation_2D = createMesh2dImpl(img_size, keypoints_for_mesh);
+  *triangulation_2D = createMesh2dImpl(img_size, keypoints_for_mesh);//输入2d点列表,生成2d的三角刨分结果?
 }
 
+//2d三角刨分主函数:
+// 利用cv::Subdiv2D,将std::vector<cv::Point2f>列表生成三角刨分结果
+// 并将单个面片的3个顶点坐标生成3个hash码,所有面片的hash组成数组 vtx_indices
 /* -------------------------------------------------------------------------- */
 // Create a 2D mesh from 2D corners in an image
 // Returns the actual keypoints used to perform the triangulation.
@@ -1795,12 +1829,12 @@ std::vector<cv::Vec6f> Mesher::createMesh2dImpl(
         // Iterate over each vertex (pixel) of the triangle.
         for (size_t j = 0u; j < tri.rows / 2u; j++) {
           // Extract vertex == pixel.
-          const cv::Point2f pixel(tri[j * 2u], tri[j * 2u + 1u]);
+          const cv::Point2f pixel(tri[j * 2u], tri[j * 2u + 1u]);//单个三角面片第j个顶点的像素坐标
           // Find vertex ids
           tri_vtx_indices[j] =
-              UtilsNumerical::hashPair(std::make_pair(pixel.x, pixel.y));
+              UtilsNumerical::hashPair(std::make_pair(pixel.x, pixel.y));//第j个顶点坐标生成唯一hash码?
         }
-        vtx_indices->push_back(tri_vtx_indices);
+        vtx_indices->push_back(tri_vtx_indices);//将单个面片的3个顶点hash码缓存进去
       }
 
     } else {

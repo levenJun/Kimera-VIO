@@ -98,7 +98,7 @@ StereoFrontendOutput::UniquePtr StereoVisionImuFrontend::bootstrapSpinStereo(
       cv::Mat(),
       getTrackerInfo());
 }
-
+//双目vio入口?
 StereoFrontendOutput::UniquePtr StereoVisionImuFrontend::nominalSpinStereo(
     StereoFrontendInputPayload::UniquePtr&& input) {
   // For timing
@@ -113,7 +113,7 @@ StereoFrontendOutput::UniquePtr StereoVisionImuFrontend::nominalSpinStereo(
   VLOG(1) << "------------------- Processing frame k = " << k
           << "--------------------";
 
-  ////////////////////////////// PROCESS IMU DATA //////////////////////////////
+  ////////////////////////////// PROCESS IMU DATA //////////////////////////////:处理IMU
 
   // Print IMU data.
   if (VLOG_IS_ON(10)) input->print();
@@ -155,7 +155,7 @@ StereoFrontendOutput::UniquePtr StereoVisionImuFrontend::nominalSpinStereo(
   }
   //////////////////////////////////////////////////////////////////////////////
 
-  /////////////////////////////// TRACKING /////////////////////////////////////
+  /////////////////////////////// TRACKING /////////////////////////////////////:处理双目图像:tracking
   // Main function for tracking.
   // Rotation used in 1 and 2 point ransac.
   VLOG(10) << "Starting processStereoFrame...";
@@ -171,7 +171,7 @@ StereoFrontendOutput::UniquePtr StereoVisionImuFrontend::nominalSpinStereo(
     StereoVisionImuFrontend::printStatusStereoMeasurements(
         *status_stereo_measurements);
 
-  if (stereoFrame_km1_->isKeyframe()) {
+  if (stereoFrame_km1_->isKeyframe()) {//生成并返回关键帧?
     // We got a keyframe!
     CHECK_EQ(stereoFrame_lkf_->timestamp_, stereoFrame_km1_->timestamp_);
     CHECK_EQ(stereoFrame_lkf_->id_, stereoFrame_km1_->id_);
@@ -218,7 +218,7 @@ StereoFrontendOutput::UniquePtr StereoVisionImuFrontend::nominalSpinStereo(
         getTrackerInfo(),
         getExternalOdometryRelativeBodyPose(input.get()),
         getExternalOdometryWorldVelocity(input.get()));
-  } else {
+  } else {//生成并返回普通帧?
     // Record frame rate timing
     timing_stats_frame_rate.AddSample(utils::Timer::toc(start_time).count());
 

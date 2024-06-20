@@ -135,6 +135,7 @@ VioBackend::VioBackend(const gtsam::Pose3& B_Pose_leftCamRect,
   if (VLOG_IS_ON(1)) print();
 }
 
+// vio后端入口函数?
 /* -------------------------------------------------------------------------- */
 BackendOutput::UniquePtr VioBackend::spinOnce(const BackendInput& input) {
   if (VLOG_IS_ON(10)) {

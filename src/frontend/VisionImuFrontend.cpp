@@ -47,6 +47,7 @@ VisionImuFrontend::~VisionImuFrontend() {
   LOG(INFO) << "VisionImuFrontend destructor called.";
 }
 
+//vio前端入口函数?
 FrontendOutputPacketBase::UniquePtr VisionImuFrontend::spinOnce(
     FrontendInputPacketBase::UniquePtr&& input) {
   const FrontendState& frontend_state = frontend_state_;
